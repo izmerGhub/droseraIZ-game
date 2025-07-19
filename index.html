@@ -5,7 +5,8 @@
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            background: linear-gradient(to bottom, #1a3a1a, #0d1f0d);
+            background: linear-gradient(to bottom, #ff6b00, #8B4513);
+            border: 3px solid #FF8C00;
             margin: 0;
             overflow: hidden;
             color: #fff;
@@ -42,6 +43,23 @@
         }
     </style>
 </head>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
+<script>
+  async function connectWallet() {
+    if (window.ethereum) {
+      try {
+        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+        document.getElementById('connectButton').textContent = "🟠 Connected: " + accounts[0].slice(0,6) + "...";
+        alert("You'll earn REAL $DROS tokens at level 5!");
+      } catch (error) {
+        console.error(error);
+      }
+    } else {
+      alert("Install MetaMask from https://metamask.io");
+    }
+  }
+  document.getElementById('connectButton').onclick = connectWallet;
+</script>
 <body>
     <div id="scorePanel">
         <h1>🌿 Drosera Defender</h1>
