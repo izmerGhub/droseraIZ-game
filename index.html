@@ -4,100 +4,155 @@
     <title>Drosera Defender</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
         body {
             font-family: 'Arial', sans-serif;
             background: linear-gradient(to bottom, #ff6b00, #8B4513);
-            margin: 0;
-            overflow: hidden;
+            min-height: 100vh;
+            overflow-x: hidden;
             color: #fff;
             touch-action: manipulation;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
         }
+        
+        #gameContainer {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
         #gameCanvas {
-            background: url('https://img.freepik.com/free-vector/desert-background_107791-1236.jpg') no-repeat;
+            background: url('https://img.freepik.com/free-vector/desert-background_107791-1236.jpg') no-repeat center center;
             background-size: cover;
-            display: block;
-            margin: 10px auto;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 8/5;
             border: 3px solid #FF8C00;
             border-radius: 10px;
-            max-width: 100%;
-            height: auto;
+            margin: 10px 0;
         }
+        
         #scorePanel {
             text-align: center;
-            padding: 5px;
+            width: 100%;
+            padding: 10px;
         }
+        
+        h1 {
+            font-size: clamp(1.5rem, 4vw, 2rem);
+            margin-bottom: 5px;
+        }
+        
+        p {
+            font-size: clamp(0.9rem, 2.5vw, 1rem);
+            margin-bottom: 10px;
+        }
+        
         #connectButton {
             background: #FF8C00;
             color: white;
             border: none;
             padding: 12px 20px;
-            font-size: 16px;
+            font-size: clamp(1rem, 3vw, 1.2rem);
             cursor: pointer;
             border-radius: 25px;
-            margin: 5px auto;
-            display: block;
-            width: 80%;
+            margin: 10px auto;
+            width: 90%;
+            max-width: 300px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
         }
+        
+        #connectButton:hover {
+            transform: scale(1.05);
+            background: #FFA500;
+        }
+        
         .tooltip {
             position: absolute;
             background: rgba(0,0,0,0.7);
-            padding: 8px;
+            padding: 8px 12px;
             border-radius: 8px;
             pointer-events: none;
             display: none;
-            font-size: 14px;
+            font-size: clamp(0.8rem, 2.5vw, 1rem);
+            z-index: 100;
         }
+        
         @media (max-width: 600px) {
             #gameCanvas {
-                width: 95vw;
-                height: 60vh;
+                aspect-ratio: 3/4;
             }
-            h1 {
-                font-size: 1.5rem;
+            
+            #connectButton {
+                padding: 10px 15px;
             }
         }
     </style>
 </head>
 <body>
-    <div id="scorePanel">
-        <h1>🌿 Drosera Defender</h1>
-        <p>Grow your plant! Connect wallet for rewards</p>
-        <p>Score: <span id="score">0</span> | Level: <span id="level">1</span></p>
-        <button id="connectButton">🦊 Connect Wallet</button>
+    <div id="gameContainer">
+        <div id="scorePanel">
+            <h1>🌿 Drosera Defender</h1>
+            <p>Grow your plant! Connect wallet for rewards</p>
+            <p>Score: <span id="score">0</span> | Level: <span id="level">1</span></p>
+            <button id="connectButton">🦊 Connect Wallet</button>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div class="tooltip" id="tooltip"></div>
     </div>
-    <canvas id="gameCanvas" width="800" height="500"></canvas>
-    <div class="tooltip" id="tooltip"></div>
 
-    <!-- Sound Elements -->
+    <!-- Sound Elements (hidden) -->
     <audio id="catchSound" src="https://assets.mixkit.co/sfx/preview/mixkit-positive-interface-beep-221.mp3" preload="auto"></audio>
     <audio id="levelUpSound" src="https://assets.mixkit.co/sfx/preview/mixkit-unlock-game-notification-253.mp3" preload="auto"></audio>
     <audio id="walletSound" src="https://assets.mixkit.co/sfx/preview/mixkit-retro-arcade-casino-notification-211.mp3" preload="auto"></audio>
 
     <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
     <script>
-        // Mobile-friendly setup
+        // Initialize canvas with proper responsive sizing
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        let canvasWidth = canvas.offsetWidth;
+        let canvasHeight = canvas.offsetHeight;
         
-        // Adjust canvas size for mobile
+        // Set initial canvas dimensions
         function resizeCanvas() {
-            const maxWidth = window.innerWidth * 0.95;
-            const maxHeight = window.innerHeight * 0.6;
-            const ratio = Math.min(maxWidth / 800, maxHeight / 500);
-            canvas.width = 800 * ratio;
-            canvas.height = 500 * ratio;
-            plantSize = 30 * ratio;
+            canvasWidth = canvas.offsetWidth;
+            canvasHeight = canvas.offsetHeight;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            
+            // Adjust game elements based on new size
+            plantSize = Math.min(canvasWidth, canvasHeight) * 0.1;
+            plant.y = canvasHeight - 50;
         }
-        window.addEventListener('resize', resizeCanvas);
+        
+        // Initial resize and window resize handler
         resizeCanvas();
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            // Redraw everything after resize
+            drawGame();
+        });
 
         // Game State
         let score = 0;
         let level = 1;
-        let plantSize = 30;
+        let plantSize = Math.min(canvasWidth, canvasHeight) * 0.1;
         let bugs = [];
         let lastBugTime = 0;
+        let animationId = null;
 
         // Sound Effects
         const sounds = {
@@ -106,10 +161,10 @@
             wallet: document.getElementById('walletSound')
         };
 
-        // Orange Theme Plant
+        // Plant Object
         const plant = {
-            x: canvas.width / 2,
-            y: canvas.height - 50,
+            x: canvasWidth / 2,
+            y: canvasHeight - 50,
             draw: function() {
                 // Orange stem
                 ctx.strokeStyle = '#FFA500';
@@ -121,12 +176,15 @@
 
                 // Dark orange traps
                 ctx.fillStyle = '#FF4500';
-                for (let i = 0; i < 5; i++) {
-                    const angle = (i * Math.PI * 2 / 5) + Date.now() / 1000;
-                    const leafX = this.x + Math.cos(angle) * plantSize;
-                    const leafY = this.y - plantSize + Math.sin(angle) * plantSize;
+                const trapCount = 5;
+                const trapSize = plantSize * 0.3;
+                
+                for (let i = 0; i < trapCount; i++) {
+                    const angle = (i * (2 * Math.PI / trapCount)) + Date.now() / 1000;
+                    const leafX = this.x + Math.cos(angle) * plantSize * 0.8;
+                    const leafY = this.y - plantSize + Math.sin(angle) * plantSize * 0.8;
                     ctx.beginPath();
-                    ctx.arc(leafX, leafY, 10, 0, Math.PI * 2);
+                    ctx.arc(leafX, leafY, trapSize, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
@@ -135,10 +193,10 @@
         // Bug Class
         class Bug {
             constructor() {
-                this.x = Math.random() * canvas.width;
+                this.x = Math.random() * canvasWidth;
                 this.y = -20;
                 this.speed = 1 + Math.random() * level;
-                this.size = 5 + Math.random() * 10;
+                this.size = 5 + Math.random() * (canvasWidth * 0.03);
                 this.type = Math.random() > 0.7 ? 'gold' : 'normal';
             }
 
@@ -153,21 +211,30 @@
                 this.y += this.speed;
                 const distance = Math.sqrt(
                     Math.pow(this.x - plant.x, 2) + 
-                    Math.pow(this.y - (canvas.height - 50), 2)
+                    Math.pow(this.y - (canvasHeight - 50), 2)
                 );
                 if (distance < plantSize) {
                     sounds.catch.currentTime = 0;
                     sounds.catch.play();
                     return 'caught';
                 }
-                return this.y > canvas.height ? 'missed' : 'active';
+                return this.y > canvasHeight ? 'missed' : 'active';
             }
+        }
+
+        // Draw the current game state
+        function drawGame() {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            
+            // Draw bugs
+            bugs.forEach(bug => bug.draw());
+            
+            // Draw plant
+            plant.draw();
         }
 
         // Game Loop
         function gameLoop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
             // Spawn bugs
             if (Date.now() - lastBugTime > 2000 / level) {
                 bugs.push(new Bug());
@@ -182,19 +249,18 @@
                     document.getElementById('score').textContent = score;
                     if (score >= level * 10) {
                         level++;
-                        plantSize += 5;
+                        plantSize += canvasWidth * 0.02;
                         document.getElementById('level').textContent = level;
                         sounds.levelUp.currentTime = 0;
                         sounds.levelUp.play();
                     }
                     return false;
                 }
-                bug.draw();
                 return status !== 'missed';
             });
 
-            plant.draw();
-            requestAnimationFrame(gameLoop);
+            drawGame();
+            animationId = requestAnimationFrame(gameLoop);
         }
 
         // Enhanced Wallet Connection
@@ -211,23 +277,34 @@
                     if (window.ethereum.isMetaMask && /Mobi|Android/i.test(navigator.userAgent)) {
                         alert("Open in MetaMask browser for full features!");
                     }
+                    
+                    // Reward player
+                    score += 5;
+                    document.getElementById('score').textContent = score;
                 } else {
                     alert("Install MetaMask from https://metamask.io");
                 }
             } catch (error) {
                 console.error(error);
+                alert("Connection failed. Please try again.");
             }
         }
 
-        // Mobile touch events
+        // Touch event handling for mobile
         canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // Prevent scrolling
+            e.preventDefault();
         }, { passive: false });
 
+        // Initialize game
         document.getElementById('connectButton').addEventListener('click', connectWallet);
-
-        // Start game
         gameLoop();
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        });
     </script>
 </body>
 </html>
