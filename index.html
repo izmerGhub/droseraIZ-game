@@ -2,100 +2,125 @@
 <html>
 <head>
     <title>Drosera Defender</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body {
             font-family: 'Arial', sans-serif;
             background: linear-gradient(to bottom, #ff6b00, #8B4513);
-            border: 3px solid #FF8C00;
             margin: 0;
             overflow: hidden;
             color: #fff;
+            touch-action: manipulation;
         }
         #gameCanvas {
-            background: url('https://img.freepik.com/free-vector/jungle-background_107791-1236.jpg') no-repeat;
+            background: url('https://img.freepik.com/free-vector/desert-background_107791-1236.jpg') no-repeat;
             background-size: cover;
             display: block;
-            margin: 20px auto;
-            border: 3px solid #4CAF50;
+            margin: 10px auto;
+            border: 3px solid #FF8C00;
             border-radius: 10px;
+            max-width: 100%;
+            height: auto;
         }
         #scorePanel {
             text-align: center;
-            margin-top: 10px;
+            padding: 5px;
         }
         #connectButton {
-            background: #4CAF50;
+            background: #FF8C00;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 20px;
             font-size: 16px;
             cursor: pointer;
-            border-radius: 5px;
-            margin-top: 10px;
+            border-radius: 25px;
+            margin: 5px auto;
+            display: block;
+            width: 80%;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         .tooltip {
             position: absolute;
             background: rgba(0,0,0,0.7);
-            padding: 5px;
-            border-radius: 5px;
+            padding: 8px;
+            border-radius: 8px;
             pointer-events: none;
             display: none;
+            font-size: 14px;
+        }
+        @media (max-width: 600px) {
+            #gameCanvas {
+                width: 95vw;
+                height: 60vh;
+            }
+            h1 {
+                font-size: 1.5rem;
+            }
         }
     </style>
 </head>
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
-<script>
-  async function connectWallet() {
-    if (window.ethereum) {
-      try {
-        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-        document.getElementById('connectButton').textContent = "🟠 Connected: " + accounts[0].slice(0,6) + "...";
-        alert("You'll earn REAL $DROS tokens at level 5!");
-      } catch (error) {
-        console.error(error);
-      }
-    } else {
-      alert("Install MetaMask from https://metamask.io");
-    }
-  }
-  document.getElementById('connectButton').onclick = connectWallet;
-</script>
 <body>
     <div id="scorePanel">
         <h1>🌿 Drosera Defender</h1>
-        <p>Grow your plant by catching bugs! Connect to earn real rewards.</p>
+        <p>Grow your plant! Connect wallet for rewards</p>
         <p>Score: <span id="score">0</span> | Level: <span id="level">1</span></p>
-        <button id="connectButton">Connect Drosera Node</button>
+        <button id="connectButton">🦊 Connect Wallet</button>
     </div>
     <canvas id="gameCanvas" width="800" height="500"></canvas>
     <div class="tooltip" id="tooltip"></div>
 
+    <!-- Sound Elements -->
+    <audio id="catchSound" src="https://assets.mixkit.co/sfx/preview/mixkit-positive-interface-beep-221.mp3" preload="auto"></audio>
+    <audio id="levelUpSound" src="https://assets.mixkit.co/sfx/preview/mixkit-unlock-game-notification-253.mp3" preload="auto"></audio>
+    <audio id="walletSound" src="https://assets.mixkit.co/sfx/preview/mixkit-retro-arcade-casino-notification-211.mp3" preload="auto"></audio>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
     <script>
-        // Game State
+        // Mobile-friendly setup
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        
+        // Adjust canvas size for mobile
+        function resizeCanvas() {
+            const maxWidth = window.innerWidth * 0.95;
+            const maxHeight = window.innerHeight * 0.6;
+            const ratio = Math.min(maxWidth / 800, maxHeight / 500);
+            canvas.width = 800 * ratio;
+            canvas.height = 500 * ratio;
+            plantSize = 30 * ratio;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Game State
         let score = 0;
         let level = 1;
         let plantSize = 30;
         let bugs = [];
         let lastBugTime = 0;
-        let connected = false;
 
-        // Drosera Plant
+        // Sound Effects
+        const sounds = {
+            catch: document.getElementById('catchSound'),
+            levelUp: document.getElementById('levelUpSound'),
+            wallet: document.getElementById('walletSound')
+        };
+
+        // Orange Theme Plant
         const plant = {
             x: canvas.width / 2,
             y: canvas.height - 50,
             draw: function() {
-                // Plant stem
-                ctx.fillStyle = '#4CAF50';
+                // Orange stem
+                ctx.strokeStyle = '#FFA500';
+                ctx.lineWidth = 5;
                 ctx.beginPath();
                 ctx.moveTo(this.x, this.y);
                 ctx.lineTo(this.x, this.y - plantSize);
-                ctx.lineWidth = 5;
                 ctx.stroke();
 
-                // Trap leaves
-                ctx.fillStyle = '#FF5722';
+                // Dark orange traps
+                ctx.fillStyle = '#FF4500';
                 for (let i = 0; i < 5; i++) {
                     const angle = (i * Math.PI * 2 / 5) + Date.now() / 1000;
                     const leafX = this.x + Math.cos(angle) * plantSize;
@@ -126,12 +151,13 @@
 
             update() {
                 this.y += this.speed;
-                // Check if caught by plant
                 const distance = Math.sqrt(
                     Math.pow(this.x - plant.x, 2) + 
                     Math.pow(this.y - (canvas.height - 50), 2)
                 );
                 if (distance < plantSize) {
+                    sounds.catch.currentTime = 0;
+                    sounds.catch.play();
                     return 'caught';
                 }
                 return this.y > canvas.height ? 'missed' : 'active';
@@ -148,7 +174,7 @@
                 lastBugTime = Date.now();
             }
 
-            // Update and draw bugs
+            // Update bugs
             bugs = bugs.filter(bug => {
                 const status = bug.update();
                 if (status === 'caught') {
@@ -158,6 +184,8 @@
                         level++;
                         plantSize += 5;
                         document.getElementById('level').textContent = level;
+                        sounds.levelUp.currentTime = 0;
+                        sounds.levelUp.play();
                     }
                     return false;
                 }
@@ -169,50 +197,34 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Connect to Drosera Network
-        document.getElementById('connectButton').addEventListener('click', async () => {
+        // Enhanced Wallet Connection
+        async function connectWallet() {
             try {
-                // Simulate API connection
-                connected = true;
-                document.getElementById('connectButton').textContent = 'Connected!';
-                document.getElementById('connectButton').style.background = '#8BC34A';
-                
-                // Reward player for connecting
-                score += 5;
-                plantSize += 3;
-                
-                // In a real implementation, you would:
-                // 1. Connect to user's Drosera node API
-                // 2. Start exchanging real network data
-                // 3. Mint NFTs or tokens based on in-game progress
-                
-                alert('Success! Your game progress now contributes to the Drosera network.');
-            } catch (err) {
-                console.error('Connection failed:', err);
-            }
-        });
-
-        // Tooltip for bugs
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            let tooltip = '';
-            bugs.forEach(bug => {
-                if (Math.abs(bug.x - x) < 10 && Math.abs(bug.y - y) < 10) {
-                    tooltip = bug.type === 'gold' 
-                        ? 'Rare bug! Worth 10 points' 
-                        : 'Normal bug: 1 point';
+                if (window.ethereum) {
+                    sounds.wallet.play();
+                    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+                    const btn = document.getElementById('connectButton');
+                    btn.textContent = `🦊 ${accounts[0].slice(0,6)}...`;
+                    btn.style.background = '#4CAF50';
+                    
+                    // Mobile-specific handling
+                    if (window.ethereum.isMetaMask && /Mobi|Android/i.test(navigator.userAgent)) {
+                        alert("Open in MetaMask browser for full features!");
+                    }
+                } else {
+                    alert("Install MetaMask from https://metamask.io");
                 }
-            });
-            
-            const tooltipEl = document.getElementById('tooltip');
-            tooltipEl.style.display = tooltip ? 'block' : 'none';
-            tooltipEl.style.left = (e.clientX + 10) + 'px';
-            tooltipEl.style.top = (e.clientY + 10) + 'px';
-            tooltipEl.textContent = tooltip;
-        });
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        // Mobile touch events
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent scrolling
+        }, { passive: false });
+
+        document.getElementById('connectButton').addEventListener('click', connectWallet);
 
         // Start game
         gameLoop();
