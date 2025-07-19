@@ -2,170 +2,93 @@
 <html>
 <head>
     <title>Drosera Defender</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        
         body {
             font-family: 'Share Tech Mono', monospace;
             background: linear-gradient(to bottom, #ff6b00, #8B4513);
-            min-height: 100vh;
-            overflow-x: hidden;
-            color: #fff;
-            touch-action: manipulation;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 10px;
-            text-shadow: 1px 1px 2px #000;
-        }
-        
-        #gameContainer {
-            width: 100%;
-            max-width: 800px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        
-        #gameCanvas {
-            background: url('https://img.freepik.com/free-vector/desert-background_107791-1236.jpg') no-repeat center center;
-            background-size: cover;
-            width: 100%;
-            height: auto;
-            aspect-ratio: 8/5;
-            border: 3px solid #FF8C00;
-            border-radius: 10px;
-            margin: 10px 0;
-        }
-        
-        #scorePanel {
+            margin: 0;
             text-align: center;
-            width: 100%;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+            overflow: hidden;
+        }
+        #gameCanvas {
+            background: url('https://img.freepik.com/free-vector/desert-background_107791-1236.jpg');
+            background-size: cover;
+            display: block;
+            margin: 10px auto;
+            border: 3px solid #FF8C00;
+            max-width: 100%;
+        }
+        #scorePanel {
             padding: 10px;
         }
-        
-        h1 {
-            font-size: clamp(1.5rem, 4vw, 2rem);
-            margin-bottom: 5px;
-            letter-spacing: 1px;
-        }
-        
-        p {
-            font-size: clamp(0.9rem, 2.5vw, 1rem);
-            margin-bottom: 10px;
-            letter-spacing: 0.5px;
-        }
-        
         #connectButton {
             background: #FF8C00;
             color: white;
             border: none;
             padding: 12px 20px;
             font-family: 'Share Tech Mono', monospace;
-            font-size: clamp(1rem, 3vw, 1.2rem);
+            font-size: 16px;
             cursor: pointer;
             border-radius: 25px;
             margin: 10px auto;
-            width: 90%;
+            display: block;
+            width: 80%;
             max-width: 300px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
+            text-transform: uppercase;
             letter-spacing: 1px;
         }
-        
-        #connectButton:hover {
-            transform: scale(1.05);
-            background: #FFA500;
-        }
-        
         .tooltip {
             position: absolute;
             background: rgba(0,0,0,0.7);
-            padding: 8px 12px;
-            border-radius: 8px;
+            padding: 5px;
+            border-radius: 5px;
             pointer-events: none;
             display: none;
             font-family: 'Share Tech Mono', monospace;
-            font-size: clamp(0.8rem, 2.5vw, 1rem);
-            z-index: 100;
-        }
-        
-        @media (max-width: 600px) {
-            #gameCanvas {
-                aspect-ratio: 3/4;
-            }
-            
-            #connectButton {
-                padding: 10px 15px;
-            }
         }
     </style>
 </head>
 <body>
-    <div id="gameContainer">
-        <div id="scorePanel">
-            <h1>🌿 DROSERA DEFENDER</h1>
-            <p>GROW YOUR PLANT! EARN CRYPTO REWARDS</p>
-            <p>SCORE: <span id="score">0</span> | LEVEL: <span id="level">1</span></p>
-            <button id="connectButton">🦊 CONNECT WALLET</button>
-        </div>
-        <canvas id="gameCanvas"></canvas>
-        <div class="tooltip" id="tooltip"></div>
+    <div id="scorePanel">
+        <h1>🌿 DROSERA DEFENDER</h1>
+        <p>GROW YOUR PLANT! EARN CRYPTO</p>
+        <p>SCORE: <span id="score">0</span> | LEVEL: <span id="level">1</span></p>
+        <button id="connectButton">🦊 CONNECT WALLET</button>
     </div>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <div class="tooltip" id="tooltip"></div>
 
-    <!-- Sound Elements -->
     <audio id="catchSound" src="https://assets.mixkit.co/sfx/preview/mixkit-positive-interface-beep-221.mp3" preload="auto"></audio>
     <audio id="levelUpSound" src="https://assets.mixkit.co/sfx/preview/mixkit-unlock-game-notification-253.mp3" preload="auto"></audio>
-    <audio id="walletSound" src="https://assets.mixkit.co/sfx/preview/mixkit-retro-arcade-casino-notification-211.mp3" preload="auto"></audio>
 
     <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
     <script>
-        // Initialize canvas with proper responsive sizing
+        // Game State
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        let canvasWidth = canvas.offsetWidth;
-        let canvasHeight = canvas.offsetHeight;
-        
-        // Set canvas dimensions
-        function resizeCanvas() {
-            canvasWidth = canvas.offsetWidth;
-            canvasHeight = canvas.offsetHeight;
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
-            plantSize = Math.min(canvasWidth, canvasHeight) * 0.1;
-            plant.y = canvasHeight - 50;
-        }
-        
-        // Initial resize and window resize handler
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
-        // Game State
         let score = 0;
         let level = 1;
-        let plantSize = Math.min(canvasWidth, canvasHeight) * 0.1;
+        let plantSize = 30;
         let bugs = [];
         let lastBugTime = 0;
-        let animationId = null;
 
-        // Sound Effects
-        const sounds = {
-            catch: document.getElementById('catchSound'),
-            levelUp: document.getElementById('levelUpSound'),
-            wallet: document.getElementById('walletSound')
-        };
+        // Make canvas responsive
+        function resizeCanvas() {
+            const ratio = Math.min(window.innerWidth / 800, window.innerHeight / 600);
+            canvas.style.width = (800 * ratio) + 'px';
+            canvas.style.height = (500 * ratio) + 'px';
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
-        // Plant Object
+        // Tech Font Plant
         const plant = {
-            x: canvasWidth / 2,
-            y: canvasHeight - 50,
+            x: canvas.width / 2,
+            y: canvas.height - 50,
             draw: function() {
                 // Orange stem
                 ctx.strokeStyle = '#FFA500';
@@ -177,15 +100,12 @@
 
                 // Dark orange traps
                 ctx.fillStyle = '#FF4500';
-                const trapCount = 5;
-                const trapSize = plantSize * 0.3;
-                
-                for (let i = 0; i < trapCount; i++) {
-                    const angle = (i * (2 * Math.PI / trapCount)) + Date.now() / 1000;
-                    const leafX = this.x + Math.cos(angle) * plantSize * 0.8;
-                    const leafY = this.y - plantSize + Math.sin(angle) * plantSize * 0.8;
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i * Math.PI * 2 / 5) + Date.now() / 1000;
+                    const leafX = this.x + Math.cos(angle) * plantSize;
+                    const leafY = this.y - plantSize + Math.sin(angle) * plantSize;
                     ctx.beginPath();
-                    ctx.arc(leafX, leafY, trapSize, 0, Math.PI * 2);
+                    ctx.arc(leafX, leafY, 10, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
@@ -194,10 +114,10 @@
         // Bug Class
         class Bug {
             constructor() {
-                this.x = Math.random() * canvasWidth;
+                this.x = Math.random() * canvas.width;
                 this.y = -20;
                 this.speed = 1 + Math.random() * level;
-                this.size = 5 + Math.random() * (canvasWidth * 0.03);
+                this.size = 5 + Math.random() * 10;
                 this.type = Math.random() > 0.7 ? 'gold' : 'normal';
             }
 
@@ -212,28 +132,27 @@
                 this.y += this.speed;
                 const distance = Math.sqrt(
                     Math.pow(this.x - plant.x, 2) + 
-                    Math.pow(this.y - (canvasHeight - 50), 2)
+                    Math.pow(this.y - (canvas.height - 50), 2)
                 );
                 if (distance < plantSize) {
-                    sounds.catch.currentTime = 0;
-                    sounds.catch.play();
+                    document.getElementById('catchSound').play();
                     return 'caught';
                 }
-                return this.y > canvasHeight ? 'missed' : 'active';
+                return this.y > canvas.height ? 'missed' : 'active';
             }
         }
 
         // Game Loop
         function gameLoop() {
-            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
             // Spawn bugs
             if (Date.now() - lastBugTime > 2000 / level) {
                 bugs.push(new Bug());
                 lastBugTime = Date.now();
             }
 
-            // Update and draw bugs
+            // Update bugs
             bugs = bugs.filter(bug => {
                 const status = bug.update();
                 if (status === 'caught') {
@@ -241,10 +160,9 @@
                     document.getElementById('score').textContent = score;
                     if (score >= level * 10) {
                         level++;
-                        plantSize += canvasWidth * 0.02;
+                        plantSize += 5;
                         document.getElementById('level').textContent = level;
-                        sounds.levelUp.currentTime = 0;
-                        sounds.levelUp.play();
+                        document.getElementById('levelUpSound').play();
                     }
                     return false;
                 }
@@ -252,54 +170,31 @@
                 return status !== 'missed';
             });
 
-            // Draw plant
             plant.draw();
-            
-            animationId = requestAnimationFrame(gameLoop);
+            requestAnimationFrame(gameLoop);
         }
 
-        // Enhanced Wallet Connection
-        async function connectWallet() {
-            try {
-                if (window.ethereum) {
-                    sounds.wallet.play();
-                    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-                    const btn = document.getElementById('connectButton');
-                    btn.textContent = `🦊 ${accounts[0].slice(0,6)}...`;
-                    btn.style.background = '#4CAF50';
-                    
-                    // Mobile-specific handling
-                    if (window.ethereum.isMetaMask && /Mobi|Android/i.test(navigator.userAgent)) {
-                        alert("OPEN IN METAMASK BROWSER FOR FULL FEATURES");
-                    }
-                    
-                    // Reward player
+        // Wallet Connection (SIMPLIFIED WORKING VERSION)
+        document.getElementById('connectButton').addEventListener('click', function() {
+            if (typeof window.ethereum !== 'undefined') {
+                ethereum.request({ method: 'eth_requestAccounts' })
+                .then(accounts => {
+                    this.textContent = "CONNECTED: " + accounts[0].slice(0,6) + "...";
+                    this.style.background = '#4CAF50';
                     score += 5;
                     document.getElementById('score').textContent = score;
-                } else {
-                    alert("INSTALL METAMASK FROM HTTPS://METAMASK.IO");
-                }
-            } catch (error) {
-                console.error(error);
-                alert("CONNECTION FAILED. TRY AGAIN.");
-            }
-        }
-
-        // Touch event handling for mobile
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-        }, { passive: false });
-
-        // Initialize game
-        document.getElementById('connectButton').addEventListener('click', connectWallet);
-        gameLoop();
-
-        // Clean up on page unload
-        window.addEventListener('beforeunload', () => {
-            if (animationId) {
-                cancelAnimationFrame(animationId);
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("CONNECTION FAILED");
+                });
+            } else {
+                alert("INSTALL METAMASK FIRST");
             }
         });
+
+        // Start game
+        gameLoop();
     </script>
 </body>
 </html>
