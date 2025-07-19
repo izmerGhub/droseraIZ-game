@@ -3,6 +3,7 @@
 <head>
     <title>Drosera Defender</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         * {
             box-sizing: border-box;
@@ -11,7 +12,7 @@
         }
         
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: 'Share Tech Mono', monospace;
             background: linear-gradient(to bottom, #ff6b00, #8B4513);
             min-height: 100vh;
             overflow-x: hidden;
@@ -21,6 +22,7 @@
             flex-direction: column;
             align-items: center;
             padding: 10px;
+            text-shadow: 1px 1px 2px #000;
         }
         
         #gameContainer {
@@ -52,11 +54,13 @@
         h1 {
             font-size: clamp(1.5rem, 4vw, 2rem);
             margin-bottom: 5px;
+            letter-spacing: 1px;
         }
         
         p {
             font-size: clamp(0.9rem, 2.5vw, 1rem);
             margin-bottom: 10px;
+            letter-spacing: 0.5px;
         }
         
         #connectButton {
@@ -64,6 +68,7 @@
             color: white;
             border: none;
             padding: 12px 20px;
+            font-family: 'Share Tech Mono', monospace;
             font-size: clamp(1rem, 3vw, 1.2rem);
             cursor: pointer;
             border-radius: 25px;
@@ -72,6 +77,7 @@
             max-width: 300px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             transition: all 0.3s ease;
+            letter-spacing: 1px;
         }
         
         #connectButton:hover {
@@ -86,6 +92,7 @@
             border-radius: 8px;
             pointer-events: none;
             display: none;
+            font-family: 'Share Tech Mono', monospace;
             font-size: clamp(0.8rem, 2.5vw, 1rem);
             z-index: 100;
         }
@@ -104,16 +111,16 @@
 <body>
     <div id="gameContainer">
         <div id="scorePanel">
-            <h1>🌿 Drosera Defender</h1>
-            <p>Grow your plant! Connect wallet for rewards</p>
-            <p>Score: <span id="score">0</span> | Level: <span id="level">1</span></p>
-            <button id="connectButton">🦊 Connect Wallet</button>
+            <h1>🌿 DROSERA DEFENDER</h1>
+            <p>GROW YOUR PLANT! EARN CRYPTO REWARDS</p>
+            <p>SCORE: <span id="score">0</span> | LEVEL: <span id="level">1</span></p>
+            <button id="connectButton">🦊 CONNECT WALLET</button>
         </div>
         <canvas id="gameCanvas"></canvas>
         <div class="tooltip" id="tooltip"></div>
     </div>
 
-    <!-- Sound Elements (hidden) -->
+    <!-- Sound Elements -->
     <audio id="catchSound" src="https://assets.mixkit.co/sfx/preview/mixkit-positive-interface-beep-221.mp3" preload="auto"></audio>
     <audio id="levelUpSound" src="https://assets.mixkit.co/sfx/preview/mixkit-unlock-game-notification-253.mp3" preload="auto"></audio>
     <audio id="walletSound" src="https://assets.mixkit.co/sfx/preview/mixkit-retro-arcade-casino-notification-211.mp3" preload="auto"></audio>
@@ -126,25 +133,19 @@
         let canvasWidth = canvas.offsetWidth;
         let canvasHeight = canvas.offsetHeight;
         
-        // Set initial canvas dimensions
+        // Set canvas dimensions
         function resizeCanvas() {
             canvasWidth = canvas.offsetWidth;
             canvasHeight = canvas.offsetHeight;
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
-            
-            // Adjust game elements based on new size
             plantSize = Math.min(canvasWidth, canvasHeight) * 0.1;
             plant.y = canvasHeight - 50;
         }
         
         // Initial resize and window resize handler
         resizeCanvas();
-        window.addEventListener('resize', () => {
-            resizeCanvas();
-            // Redraw everything after resize
-            drawGame();
-        });
+        window.addEventListener('resize', resizeCanvas);
 
         // Game State
         let score = 0;
@@ -222,26 +223,17 @@
             }
         }
 
-        // Draw the current game state
-        function drawGame() {
-            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-            
-            // Draw bugs
-            bugs.forEach(bug => bug.draw());
-            
-            // Draw plant
-            plant.draw();
-        }
-
         // Game Loop
         function gameLoop() {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            
             // Spawn bugs
             if (Date.now() - lastBugTime > 2000 / level) {
                 bugs.push(new Bug());
                 lastBugTime = Date.now();
             }
 
-            // Update bugs
+            // Update and draw bugs
             bugs = bugs.filter(bug => {
                 const status = bug.update();
                 if (status === 'caught') {
@@ -256,10 +248,13 @@
                     }
                     return false;
                 }
+                bug.draw();
                 return status !== 'missed';
             });
 
-            drawGame();
+            // Draw plant
+            plant.draw();
+            
             animationId = requestAnimationFrame(gameLoop);
         }
 
@@ -275,18 +270,18 @@
                     
                     // Mobile-specific handling
                     if (window.ethereum.isMetaMask && /Mobi|Android/i.test(navigator.userAgent)) {
-                        alert("Open in MetaMask browser for full features!");
+                        alert("OPEN IN METAMASK BROWSER FOR FULL FEATURES");
                     }
                     
                     // Reward player
                     score += 5;
                     document.getElementById('score').textContent = score;
                 } else {
-                    alert("Install MetaMask from https://metamask.io");
+                    alert("INSTALL METAMASK FROM HTTPS://METAMASK.IO");
                 }
             } catch (error) {
                 console.error(error);
-                alert("Connection failed. Please try again.");
+                alert("CONNECTION FAILED. TRY AGAIN.");
             }
         }
 
