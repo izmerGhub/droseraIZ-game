@@ -2,23 +2,31 @@
 <html>
 <head>
     <title>Drosera Defender</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.7.8/dist/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.7.3/dist/web3.min.js"></script>
     <style>
         body {
             font-family: 'Share Tech Mono', monospace;
             background: linear-gradient(to bottom, #ff6b00, #8B4513);
             margin: 0;
-            text-align: center;
             color: white;
+            text-align: center;
             text-shadow: 1px 1px 2px black;
             overflow: hidden;
+            touch-action: manipulation;
+        }
+        #gameContainer {
+            position: relative;
+            margin: 0 auto;
+            max-width: 800px;
         }
         #gameCanvas {
             background: url('https://img.freepik.com/free-vector/desert-background_107791-1236.jpg');
             background-size: cover;
             display: block;
-            margin: 10px auto;
+            margin: 0 auto;
             border: 3px solid #FF8C00;
             max-width: 100%;
         }
@@ -41,31 +49,83 @@
             text-transform: uppercase;
             letter-spacing: 1px;
         }
-        .tooltip {
-            position: absolute;
-            background: rgba(0,0,0,0.7);
-            padding: 5px;
-            border-radius: 5px;
-            pointer-events: none;
+        #mobileControls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 10px 0;
+        }
+        .mobileBtn {
+            background: rgba(255,140,0,0.7);
+            color: white;
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 24px;
+            touch-action: manipulation;
+        }
+        #walletModal {
             display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        #walletOptions {
+            background: #333;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+        }
+        .walletBtn {
+            background: #FF8C00;
+            color: white;
+            border: none;
+            padding: 15px;
+            margin: 10px 0;
+            width: 100%;
+            border-radius: 5px;
             font-family: 'Share Tech Mono', monospace;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <div id="scorePanel">
-        <h1>🌿 DROSERA DEFENDER</h1>
-        <p>GROW YOUR PLANT! EARN CRYPTO</p>
-        <p>SCORE: <span id="score">0</span> | LEVEL: <span id="level">1</span></p>
-        <button id="connectButton">🦊 CONNECT WALLET</button>
+    <div id="gameContainer">
+        <div id="scorePanel">
+            <h1>DROSERA DEFENDER</h1>
+            <p>SCORE: <span id="score">0</span> | LEVEL: <span id="level">1</span></p>
+            <button id="connectButton">🔌 CONNECT WALLET</button>
+        </div>
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        <div id="mobileControls">
+            <button class="mobileBtn" id="leftBtn">←</button>
+            <button class="mobileBtn" id="rightBtn">→</button>
+        </div>
     </div>
-    <canvas id="gameCanvas" width="800" height="500"></canvas>
-    <div class="tooltip" id="tooltip"></div>
 
+    <!-- Wallet Connection Modal -->
+    <div id="walletModal">
+        <div id="walletOptions">
+            <h2>SELECT WALLET</h2>
+            <button class="walletBtn" id="mmBtn">METAMASK</button>
+            <button class="walletBtn" id="wcBtn">WALLETCONNECT</button>
+            <button class="walletBtn" id="cbBtn">COINBASE WALLET</button>
+            <button class="walletBtn" id="closeBtn">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- Audio -->
     <audio id="catchSound" src="https://assets.mixkit.co/sfx/preview/mixkit-positive-interface-beep-221.mp3" preload="auto"></audio>
     <audio id="levelUpSound" src="https://assets.mixkit.co/sfx/preview/mixkit-unlock-game-notification-253.mp3" preload="auto"></audio>
 
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
     <script>
         // Game State
         const canvas = document.getElementById('gameCanvas');
@@ -75,41 +135,75 @@
         let plantSize = 30;
         let bugs = [];
         let lastBugTime = 0;
+        let plantX = canvas.width / 2;
+        let moveDirection = 0;
+        let mobileControlsActive = false;
 
         // Make canvas responsive
         function resizeCanvas() {
-            const ratio = Math.min(window.innerWidth / 800, window.innerHeight / 600);
+            const ratio = Math.min(window.innerWidth / 800, (window.innerHeight * 0.8) / 500);
             canvas.style.width = (800 * ratio) + 'px';
             canvas.style.height = (500 * ratio) + 'px';
+            
+            // Show/hide mobile controls
+            mobileControlsActive = window.innerWidth < 768;
+            document.getElementById('mobileControls').style.display = mobileControlsActive ? 'flex' : 'none';
         }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // Tech Font Plant
+        // Plant Object
         const plant = {
-            x: canvas.width / 2,
-            y: canvas.height - 50,
             draw: function() {
                 // Orange stem
                 ctx.strokeStyle = '#FFA500';
                 ctx.lineWidth = 5;
                 ctx.beginPath();
-                ctx.moveTo(this.x, this.y);
-                ctx.lineTo(this.x, this.y - plantSize);
+                ctx.moveTo(plantX, canvas.height - 50);
+                ctx.lineTo(plantX, canvas.height - 50 - plantSize);
                 ctx.stroke();
 
                 // Dark orange traps
                 ctx.fillStyle = '#FF4500';
                 for (let i = 0; i < 5; i++) {
                     const angle = (i * Math.PI * 2 / 5) + Date.now() / 1000;
-                    const leafX = this.x + Math.cos(angle) * plantSize;
-                    const leafY = this.y - plantSize + Math.sin(angle) * plantSize;
+                    const leafX = plantX + Math.cos(angle) * plantSize;
+                    const leafY = (canvas.height - 50 - plantSize) + Math.sin(angle) * plantSize;
                     ctx.beginPath();
                     ctx.arc(leafX, leafY, 10, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
         };
+
+        // Movement Controls
+        function handleMovement() {
+            const moveSpeed = 5;
+            plantX += moveDirection * moveSpeed;
+            
+            // Boundary checking
+            plantX = Math.max(plantSize, Math.min(canvas.width - plantSize, plantX));
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') moveDirection = -1;
+            if (e.key === 'ArrowRight') moveDirection = 1;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') moveDirection = 0;
+        });
+
+        // Mobile controls
+        document.getElementById('leftBtn').addEventListener('touchstart', () => moveDirection = -1);
+        document.getElementById('rightBtn').addEventListener('touchstart', () => moveDirection = 1);
+        document.getElementById('leftBtn').addEventListener('touchend', () => moveDirection = 0);
+        document.getElementById('rightBtn').addEventListener('touchend', () => moveDirection = 0);
+        document.getElementById('leftBtn').addEventListener('mousedown', () => moveDirection = -1);
+        document.getElementById('rightBtn').addEventListener('mousedown', () => moveDirection = 1);
+        document.getElementById('leftBtn').addEventListener('mouseup', () => moveDirection = 0);
+        document.getElementById('rightBtn').addEventListener('mouseup', () => moveDirection = 0);
 
         // Bug Class
         class Bug {
@@ -131,7 +225,7 @@
             update() {
                 this.y += this.speed;
                 const distance = Math.sqrt(
-                    Math.pow(this.x - plant.x, 2) + 
+                    Math.pow(this.x - plantX, 2) + 
                     Math.pow(this.y - (canvas.height - 50), 2)
                 );
                 if (distance < plantSize) {
@@ -145,6 +239,9 @@
         // Game Loop
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Handle movement
+            handleMovement();
 
             // Spawn bugs
             if (Date.now() - lastBugTime > 2000 / level) {
@@ -174,24 +271,78 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Wallet Connection (SIMPLIFIED WORKING VERSION)
-        document.getElementById('connectButton').addEventListener('click', function() {
-            if (typeof window.ethereum !== 'undefined') {
-                ethereum.request({ method: 'eth_requestAccounts' })
-                .then(accounts => {
-                    this.textContent = "CONNECTED: " + accounts[0].slice(0,6) + "...";
-                    this.style.background = '#4CAF50';
-                    score += 5;
-                    document.getElementById('score').textContent = score;
-                })
-                .catch(err => {
-                    console.error(err);
+        // Universal Wallet Connection
+        function showWalletModal() {
+            document.getElementById('walletModal').style.display = 'flex';
+        }
+
+        function hideWalletModal() {
+            document.getElementById('walletModal').style.display = 'none';
+        }
+
+        async function connectMetaMask() {
+            if (window.ethereum) {
+                try {
+                    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+                    updateWalletUI(accounts[0]);
+                } catch (error) {
+                    console.error(error);
                     alert("CONNECTION FAILED");
-                });
+                }
             } else {
-                alert("INSTALL METAMASK FIRST");
+                alert("METAMASK NOT DETECTED");
             }
-        });
+            hideWalletModal();
+        }
+
+        async function connectWalletConnect() {
+            const provider = new WalletConnectProvider.default({
+                rpc: {
+                    1: "https://mainnet.infura.io/v3/YOUR_INFURA_ID"
+                }
+            });
+            
+            try {
+                await provider.enable();
+                const web3 = new Web3(provider);
+                const accounts = await web3.eth.getAccounts();
+                updateWalletUI(accounts[0]);
+            } catch (error) {
+                console.error(error);
+                alert("WALLETCONNECT FAILED");
+            }
+            hideWalletModal();
+        }
+
+        async function connectCoinbase() {
+            if (window.ethereum && window.ethereum.isCoinbaseWallet) {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    updateWalletUI(accounts[0]);
+                } catch (error) {
+                    console.error(error);
+                    alert("COINBASE CONNECTION FAILED");
+                }
+            } else {
+                alert("COINBASE WALLET NOT DETECTED");
+            }
+            hideWalletModal();
+        }
+
+        function updateWalletUI(address) {
+            const btn = document.getElementById('connectButton');
+            btn.textContent = `✔ ${address.slice(0,6)}...${address.slice(-4)}`;
+            btn.style.background = '#4CAF50';
+            score += 5;
+            document.getElementById('score').textContent = score;
+        }
+
+        // Event Listeners
+        document.getElementById('connectButton').addEventListener('click', showWalletModal);
+        document.getElementById('mmBtn').addEventListener('click', connectMetaMask);
+        document.getElementById('wcBtn').addEventListener('click', connectWalletConnect);
+        document.getElementById('cbBtn').addEventListener('click', connectCoinbase);
+        document.getElementById('closeBtn').addEventListener('click', hideWalletModal);
 
         // Start game
         gameLoop();
