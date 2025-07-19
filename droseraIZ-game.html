@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Drosera Defender</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to bottom, #1a3a1a, #0d1f0d);
+            margin: 0;
+            overflow: hidden;
+            color: #fff;
+        }
+        #gameCanvas {
+            background: url('https://img.freepik.com/free-vector/jungle-background_107791-1236.jpg') no-repeat;
+            background-size: cover;
+            display: block;
+            margin: 20px auto;
+            border: 3px solid #4CAF50;
+            border-radius: 10px;
+        }
+        #scorePanel {
+            text-align: center;
+            margin-top: 10px;
+        }
+        #connectButton {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.7);
+            padding: 5px;
+            border-radius: 5px;
+            pointer-events: none;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="scorePanel">
+        <h1>🌿 Drosera Defender</h1>
+        <p>Grow your plant by catching bugs! Connect to earn real rewards.</p>
+        <p>Score: <span id="score">0</span> | Level: <span id="level">1</span></p>
+        <button id="connectButton">Connect Drosera Node</button>
+    </div>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // Game State
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let score = 0;
+        let level = 1;
+        let plantSize = 30;
+        let bugs = [];
+        let lastBugTime = 0;
+        let connected = false;
+
+        // Drosera Plant
+        const plant = {
+            x: canvas.width / 2,
+            y: canvas.height - 50,
+            draw: function() {
+                // Plant stem
+                ctx.fillStyle = '#4CAF50';
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x, this.y - plantSize);
+                ctx.lineWidth = 5;
+                ctx.stroke();
+
+                // Trap leaves
+                ctx.fillStyle = '#FF5722';
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i * Math.PI * 2 / 5) + Date.now() / 1000;
+                    const leafX = this.x + Math.cos(angle) * plantSize;
+                    const leafY = this.y - plantSize + Math.sin(angle) * plantSize;
+                    ctx.beginPath();
+                    ctx.arc(leafX, leafY, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        };
+
+        // Bug Class
+        class Bug {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = -20;
+                this.speed = 1 + Math.random() * level;
+                this.size = 5 + Math.random() * 10;
+                this.type = Math.random() > 0.7 ? 'gold' : 'normal';
+            }
+
+            draw() {
+                ctx.fillStyle = this.type === 'gold' ? '#FFD700' : '#8B4513';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            update() {
+                this.y += this.speed;
+                // Check if caught by plant
+                const distance = Math.sqrt(
+                    Math.pow(this.x - plant.x, 2) + 
+                    Math.pow(this.y - (canvas.height - 50), 2)
+                );
+                if (distance < plantSize) {
+                    return 'caught';
+                }
+                return this.y > canvas.height ? 'missed' : 'active';
+            }
+        }
+
+        // Game Loop
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Spawn bugs
+            if (Date.now() - lastBugTime > 2000 / level) {
+                bugs.push(new Bug());
+                lastBugTime = Date.now();
+            }
+
+            // Update and draw bugs
+            bugs = bugs.filter(bug => {
+                const status = bug.update();
+                if (status === 'caught') {
+                    score += bug.type === 'gold' ? 10 : 1;
+                    document.getElementById('score').textContent = score;
+                    if (score >= level * 10) {
+                        level++;
+                        plantSize += 5;
+                        document.getElementById('level').textContent = level;
+                    }
+                    return false;
+                }
+                bug.draw();
+                return status !== 'missed';
+            });
+
+            plant.draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Connect to Drosera Network
+        document.getElementById('connectButton').addEventListener('click', async () => {
+            try {
+                // Simulate API connection
+                connected = true;
+                document.getElementById('connectButton').textContent = 'Connected!';
+                document.getElementById('connectButton').style.background = '#8BC34A';
+                
+                // Reward player for connecting
+                score += 5;
+                plantSize += 3;
+                
+                // In a real implementation, you would:
+                // 1. Connect to user's Drosera node API
+                // 2. Start exchanging real network data
+                // 3. Mint NFTs or tokens based on in-game progress
+                
+                alert('Success! Your game progress now contributes to the Drosera network.');
+            } catch (err) {
+                console.error('Connection failed:', err);
+            }
+        });
+
+        // Tooltip for bugs
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            let tooltip = '';
+            bugs.forEach(bug => {
+                if (Math.abs(bug.x - x) < 10 && Math.abs(bug.y - y) < 10) {
+                    tooltip = bug.type === 'gold' 
+                        ? 'Rare bug! Worth 10 points' 
+                        : 'Normal bug: 1 point';
+                }
+            });
+            
+            const tooltipEl = document.getElementById('tooltip');
+            tooltipEl.style.display = tooltip ? 'block' : 'none';
+            tooltipEl.style.left = (e.clientX + 10) + 'px';
+            tooltipEl.style.top = (e.clientY + 10) + 'px';
+            tooltipEl.textContent = tooltip;
+        });
+
+        // Start game
+        gameLoop();
+    </script>
+</body>
+</html>
